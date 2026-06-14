@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Inhalt verschlüsseln · Liebes-Counter</title>
+<style>
+  :root{
+    --night:#17121d; --night2:#1f1825; --gold:#e7b873; --rose:#e2899a;
+    --cream:#f3e8da; --muted:#b6a7b8; --line:#3a2f40; --ok:#7fd1a6; --bad:#e98b8b;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; background:
+      radial-gradient(1200px 700px at 80% -10%, #2a1f31 0%, transparent 60%),
+      radial-gradient(900px 600px at -10% 110%, #2a2030 0%, transparent 55%),
+      var(--night);
+    color:var(--cream);
+    font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    padding:32px 18px 80px;
+  }
+  .wrap{max-width:860px; margin:0 auto}
+  h1{
+    font:600 26px/1.2 "Iowan Old Style",Palatino,Georgia,serif;
+    margin:0 0 6px; letter-spacing:.3px;
+  }
+  h1 .hint{color:var(--gold)}
+  p.lede{color:var(--muted); margin:0 0 26px}
+  .card{
+    background:linear-gradient(180deg,var(--night2),#1b1422);
+    border:1px solid var(--line); border-radius:16px; padding:20px 20px 22px;
+    margin-bottom:20px; box-shadow:0 18px 50px rgba(0,0,0,.35);
+  }
+  label{display:block; font-weight:600; margin:0 0 8px}
+  .sub{color:var(--muted); font-weight:400; font-size:13px}
+  textarea,input[type=text],input[type=password],input[type=number]{
+    width:100%; background:#120d17; color:var(--cream);
+    border:1px solid var(--line); border-radius:10px; padding:12px 14px;
+    font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  textarea{min-height:200px; resize:vertical}
+  .row{display:flex; gap:16px; flex-wrap:wrap; margin-top:16px}
+  .row > div{flex:1 1 220px}
+  button{
+    appearance:none; cursor:pointer; border:none; border-radius:999px;
+    padding:12px 22px; font-weight:700; font-size:15px;
+    background:linear-gradient(180deg,var(--gold),#d9a259); color:#2a1c10;
+    transition:transform .08s ease, filter .2s ease;
+  }
+  button:hover{filter:brightness(1.05)} button:active{transform:translateY(1px)}
+  button.ghost{background:transparent; color:var(--cream); border:1px solid var(--line)}
+  .btns{display:flex; gap:12px; flex-wrap:wrap; margin-top:18px}
+  output,.out{display:block}
+  pre{
+    white-space:pre-wrap; word-break:break-all; background:#120d17;
+    border:1px solid var(--line); border-radius:10px; padding:14px;
+    font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    color:#d8cbe0; max-height:260px; overflow:auto;
+  }
+  .status{margin-top:12px; font-weight:600}
+  .status.ok{color:var(--ok)} .status.bad{color:var(--bad)}
+  .note{
+    border-left:3px solid var(--rose); padding:8px 0 8px 14px; color:var(--muted);
+    font-size:14px; margin:14px 0 0;
+  }
+  code{background:#120d17; padding:1px 6px; border-radius:6px; color:var(--gold)}
+  details{margin-top:10px} summary{cursor:pointer; color:var(--gold)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Inhalt verschlüsseln <span class="hint">· Liebes-Counter</span></h1>
+  <p class="lede">
+    Erzeugt den verschlüsselten Block für <code>index.html</code>. Alles passiert
+    lokal im Browser – nichts wird hochgeladen. Bitte über <code>https</code> oder
+    <code>http://localhost</code> öffnen (Web-Crypto braucht einen sicheren Kontext).
+  </p>
+
+  <div class="card">
+    <label for="pt">Klartext-Inhalt (HTML-Fragment)
+      <span class="sub">— der geschützte Bereich, der nach Eingabe der Passphrase erscheint.</span>
+    </label>
+    <textarea id="pt" spellcheck="false" placeholder="<section>… euer privater Inhalt …</section>"></textarea>
+
+    <div class="row">
+      <div>
+        <label for="pw">Passphrase
+          <span class="sub">— lang &amp; einzigartig wählen.</span>
+        </label>
+        <input id="pw" type="password" autocomplete="new-password" placeholder="z. B. vier zufällige Wörter + Zahl" />
+      </div>
+      <div>
+        <label for="iter">PBKDF2-Iterationen
+          <span class="sub">— min. 250000.</span>
+        </label>
+        <input id="iter" type="number" min="250000" step="50000" value="250000" />
+      </div>
+    </div>
+
+    <div class="btns">
+      <button id="enc">Verschlüsseln</button>
+      <button id="fill" class="ghost" type="button" title="Lädt den mitgelieferten Standard-Inhalt zum Anpassen">Standard-Inhalt laden</button>
+    </div>
+    <div id="status" class="status"></div>
+  </div>
+
+  <div class="card" id="resultCard" hidden>
+    <label>1 · Block zum Einsetzen in <code>index.html</code>
+      <span class="sub">— ersetze damit die Zeile <code>var ENC = {…};</code></span>
+    </label>
+    <pre id="snippet"></pre>
+    <div class="btns">
+      <button id="copySnippet" type="button">Snippet kopieren</button>
+      <button id="copyJson" class="ghost" type="button">Nur JSON kopieren</button>
+    </div>
+
+    <details>
+      <summary>2 · Test: mit Passphrase wieder entschlüsseln</summary>
+      <div class="row">
+        <div>
+          <input id="testpw" type="password" autocomplete="off" placeholder="Passphrase zum Testen" />
+        </div>
+        <div>
+          <button id="testBtn" class="ghost" type="button">Entschlüsseln &amp; prüfen</button>
+        </div>
+      </div>
+      <div id="testStatus" class="status"></div>
+      <pre id="testOut" hidden></pre>
+    </details>
+
+    <p class="note">
+      Die Sicherheit hängt allein an der Stärke der Passphrase. Wer die
+      <code>index.html</code> hat, kann beliebig oft Passwörter durchprobieren –
+      darum vier oder mehr zufällige Wörter verwenden und die Passphrase nicht im
+      Repository notieren.
+    </p>
+  </div>
+</div>
+
+<script>
+"use strict";
+(function(){
+  var subtle = window.crypto && window.crypto.subtle;
+  var enc = new TextEncoder(), dec = new TextDecoder();
+  var $ = function(id){ return document.getElementById(id); };
+  var lastENC = null;
+
+  if(!subtle){
+    setStatus("status","Dieser Kontext erlaubt keine Web-Crypto. Bitte über https oder http://localhost öffnen.","bad");
+    $("enc").disabled = true;
+  }
+
+  function setStatus(id,msg,cls){
+    var el = $(id); el.textContent = msg || "";
+    el.className = "status" + (cls ? " "+cls : "");
+  }
+  function b64(bytes){
+    var bin = ""; var u = new Uint8Array(bytes);
+    for(var i=0;i<u.length;i++) bin += String.fromCharCode(u[i]);
+    return btoa(bin);
+  }
+  function b64dec(s){
+    var bin = atob(s), u = new Uint8Array(bin.length);
+    for(var i=0;i<bin.length;i++) u[i] = bin.charCodeAt(i);
+    return u;
+  }
+  function deriveKey(pw, salt, iter, usage){
+    return subtle.importKey("raw", enc.encode(pw), "PBKDF2", false, ["deriveKey"])
+      .then(function(base){
+        return subtle.deriveKey(
+          { name:"PBKDF2", salt:salt, iterations:iter, hash:"SHA-256" },
+          base, { name:"AES-GCM", length:256 }, false, usage);
+      });
+  }
+
+  $("fill").addEventListener("click", function(){
+    $("pt").value = DEFAULT_CONTENT.trim();
+    setStatus("status","Standard-Inhalt geladen – jetzt anpassen und verschlüsseln.","");
+  });
+
+  $("enc").addEventListener("click", function(){
+    var pt = $("pt").value;
+    var pw = $("pw").value;
+    var iter = parseInt($("iter").value, 10) || 0;
+    if(!pt.trim()){ setStatus("status","Bitte Inhalt eingeben.","bad"); return; }
+    if(!pw){ setStatus("status","Bitte Passphrase eingeben.","bad"); return; }
+    if(iter < 250000){ setStatus("status","Iterationen müssen ≥ 250000 sein.","bad"); return; }
+
+    setStatus("status","Verschlüssle …","");
+    var salt = crypto.getRandomValues(new Uint8Array(16));
+    var iv   = crypto.getRandomValues(new Uint8Array(12));
+    deriveKey(pw, salt, iter, ["encrypt"]).then(function(key){
+      return subtle.encrypt({ name:"AES-GCM", iv:iv }, key, enc.encode(pt));
+    }).then(function(ct){
+      lastENC = { v:1, iter:iter, salt:b64(salt), iv:b64(iv), ct:b64(ct) };
+      var json = JSON.stringify(lastENC);
+      $("snippet").textContent = "var ENC = " + json + ";";
+      $("resultCard").hidden = false;
+      setStatus("status","Fertig – " + pt.length + " Zeichen verschlüsselt.","ok");
+      $("resultCard").scrollIntoView({ behavior:"smooth", block:"start" });
+    }).catch(function(e){
+      setStatus("status","Fehler: " + e.message, "bad");
+    });
+  });
+
+  function copy(text, btn){
+    var done = function(){ var t=btn.textContent; btn.textContent="Kopiert ✓"; setTimeout(function(){btn.textContent=t;},1400); };
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(done, function(){ fallback(); });
+    } else { fallback(); }
+    function fallback(){
+      var ta=document.createElement("textarea"); ta.value=text; document.body.appendChild(ta);
+      ta.select(); try{document.execCommand("copy");}catch(e){} document.body.removeChild(ta); done();
+    }
+  }
+  $("copySnippet").addEventListener("click", function(){ copy($("snippet").textContent, this); });
+  $("copyJson").addEventListener("click", function(){ if(lastENC) copy(JSON.stringify(lastENC), this); });
+
+  $("testBtn").addEventListener("click", function(){
+    if(!lastENC){ setStatus("testStatus","Erst verschlüsseln.","bad"); return; }
+    var pw = $("testpw").value;
+    if(!pw){ setStatus("testStatus","Passphrase eingeben.","bad"); return; }
+    setStatus("testStatus","Prüfe …","");
+    var salt=b64dec(lastENC.salt), iv=b64dec(lastENC.iv), ct=b64dec(lastENC.ct);
+    deriveKey(pw, salt, lastENC.iter, ["decrypt"]).then(function(key){
+      return subtle.decrypt({ name:"AES-GCM", iv:iv }, key, ct);
+    }).then(function(buf){
+      var txt = dec.decode(buf);
+      setStatus("testStatus","Passphrase korrekt – Inhalt lässt sich entschlüsseln ✓","ok");
+      var out=$("testOut"); out.hidden=false; out.textContent = txt.slice(0,600) + (txt.length>600?" …":"");
+    }).catch(function(){
+      setStatus("testStatus","Falsche Passphrase (oder beschädigter Block).","bad");
+      $("testOut").hidden = true;
+    });
+  });
+
+  /* Mitgelieferter Standard-Inhalt (identisch zur ausgelieferten index.html). */
+  var DEFAULT_CONTENT = `<header class="seal">
+  <div class="monogram" aria-hidden="true">N<span class="amp">&amp;</span>A</div>
+  <p class="eyebrow">Niklas &amp; Angela</p>
+  <p class="since">zusammen seit dem 6. Juni 2026</p>
+</header>
+
+<section class="hero" aria-labelledby="hero-label">
+  <p class="hero-label" id="hero-label">So lange sind wir schon ein Wir —</p>
+  <div class="counter" id="mainCounter" aria-live="polite"><span class="big">…</span></div>
+  <div class="unit-switch" id="unitSwitch" role="group" aria-label="Einheit für den Zähler wählen"></div>
+</section>
+
+<section class="panel" aria-labelledby="wed-h">
+  <div class="panel-head">
+    <span class="kicker">Countdown</span>
+    <h2 id="wed-h">bis zur Hochzeit am 6. Juni 2029</h2>
+  </div>
+  <div class="clock" id="weddingClock"></div>
+  <p class="halfway" id="halfway"></p>
+</section>
+
+<section class="panel" aria-labelledby="next-h">
+  <div class="panel-head">
+    <span class="kicker">Als Nächstes</span>
+    <h2 id="next-h">Nächster Meilenstein</h2>
+  </div>
+  <div class="next-ms" id="nextMilestone"></div>
+</section>
+
+<section class="panel" aria-labelledby="list-h">
+  <div class="panel-head list-head">
+    <div>
+      <span class="kicker">Zum Feiern</span>
+      <h2 id="list-h">Eure Meilensteine</h2>
+    </div>
+    <button type="button" class="btn" id="icsBtn">Kalender laden (.ics)</button>
+  </div>
+  <ol class="ms-list" id="msList"></ol>
+</section>
+
+<footer class="foot">
+  <p class="foot-line">Jede Sekunde mit dir zählt.</p>
+  <p class="sig">— für immer, N&nbsp;&amp;&nbsp;A</p>
+</footer>
+`;
+})();
+</script>
+</body>
+</html>

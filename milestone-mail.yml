@@ -1,0 +1,71 @@
+# =============================================================================
+# milestone-mail.yml — tägliche Meilenstein-Mail
+# -----------------------------------------------------------------------------
+# Läuft jeden Morgen und schickt EINE Mail, wenn heute (Europe/Berlin) ein
+# Meilenstein ansteht. Manuell startbar über den Reiter „Actions" -> „Run
+# workflow" (mit Häkchen „force" wird testweise der nächste Meilenstein
+# verschickt, auch wenn heute keiner ist).
+#
+# WICHTIG: Alle Zugangsdaten kommen ausschließlich aus GitHub-Secrets,
+# niemals im Klartext hier hinterlegen. Anzulegen unter:
+#   Repo -> Settings -> Secrets and variables -> Actions -> New repository secret
+#     MAIL_SERVER    z. B. smtp.gmail.com
+#     MAIL_PORT      z. B. 465
+#     MAIL_USERNAME  Absende-Adresse / SMTP-Benutzer
+#     MAIL_PASSWORD  App-Passwort (bei Gmail ein „App-Passwort", nicht das normale)
+#     MAIL_TO        Empfänger (z. B. beide Adressen, kommagetrennt)
+#   optional:
+#     SITE_URL       Link zur Seite, der in der Mail erscheint
+# =============================================================================
+name: Meilenstein-Mail
+
+on:
+  schedule:
+    # 06:06 UTC täglich. (Sommer ~08:06, Winter ~07:06 Berliner Zeit.)
+    # Cron läuft immer in UTC; die „heute"-Prüfung im Skript nutzt Europe/Berlin.
+    - cron: "6 6 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Testmail senden (nächster Meilenstein), auch wenn heute keiner ist"
+        type: boolean
+        default: false
+
+# Keine Schreibrechte nötig – der Job liest nur das Repo.
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code auschecken
+        uses: actions/checkout@v4
+
+      - name: Node einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Meilenstein prüfen
+        id: check
+        env:
+          FORCE: ${{ inputs.force }}
+          SITE_URL: ${{ secrets.SITE_URL }}
+        run: node .github/scripts/check-milestones.mjs
+
+      - name: Mail senden
+        if: steps.check.outputs.hit == 'true'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.MAIL_SERVER }}
+          server_port: ${{ secrets.MAIL_PORT }}
+          secure: true
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          from: Liebes-Counter <${{ secrets.MAIL_USERNAME }}>
+          to: ${{ secrets.MAIL_TO }}
+          subject: ${{ steps.check.outputs.subject }}
+          html_body: ${{ steps.check.outputs.html }}
+          # Reiner Text als Rückfallebene für Mailprogramme ohne HTML.
+          body: ${{ steps.check.outputs.subject }}
