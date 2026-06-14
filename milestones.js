@@ -254,18 +254,18 @@
     var L = [
       "BEGIN:VCALENDAR",
       "VERSION:2.0",
-      "PRODID:-//Niklas & Angela//Liebes-Counter//DE",
+      "PRODID:-//Angela & Niklas//Liebes-Counter//DE",
       "CALSCALE:GREGORIAN",
       "METHOD:PUBLISH",
-      "X-WR-CALNAME:Niklas & Angela – Meilensteine",
+      "X-WR-CALNAME:Angela & Niklas – Meilensteine",
       "X-WR-TIMEZONE:" + TZ
     ];
     list.forEach(function (m) {
       var start = m.date.replace(/-/g, "");                 // YYYYMMDD (Ganztag)
       var end   = addDaysISO(m.date, 1).replace(/-/g, "");  // exklusives Ende
-      var uid   = m.date + "-" + slug(m.titles[0]) + "@niklas-angela.love";
+      var uid   = m.date + "-" + slug(m.titles[0]) + "@angela-niklas.love";
       var summary = m.emoji + " " + m.title;
-      var desc = m.titles.join(" \\n ") + " \\n— Niklas \u2764 Angela";
+      var desc = m.titles.join(" \\n ") + " \\n— Angela \u2764 Niklas";
       L.push("BEGIN:VEVENT");
       L.push("UID:" + uid);
       L.push("DTSTAMP:" + stamp);
