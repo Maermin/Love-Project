@@ -308,7 +308,7 @@ canvas#confetti{z-index:60}
   ];
   var memUnit = "tag";
   function loadUnit(){ try { return localStorage.getItem("na_unit") || "tag"; } catch (e) { return memUnit; } }
-  function saveUnit(u){ memUnit = u; try { localStorage.setItem("na_unit", u); } catch (e) {} }
+  function saveUnit(u){ unit = u; memUnit = u; try { localStorage.setItem("na_unit", u); } catch (e) {} }
   var unit = loadUnit();
 
   var fmt = H.deNum;
