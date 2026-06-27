@@ -5,12 +5,15 @@
  * Grundsatz: NIE die Seite kaputtmachen. Jeder Fehler wird verschluckt; im
  * Zweifel geht die Anfrage normal ins Netz.
  *
- * Nach inhaltlichen Änderungen die CACHE-Version hochzählen, damit Clients die
- * neue Fassung laden (z. B. v1 -> v2).
+ * Strategie: NETZ ZUERST, Cache nur als Offline-Fallback. Dadurch greift jeder
+ * Deploy sofort (keine veralteten Dateien mehr), und offline funktioniert die
+ * Seite trotzdem aus dem letzten Stand.
+ *
+ * Nach inhaltlichen Änderungen die CACHE-Version hochzählen (z. B. v2 -> v3).
  * ========================================================================== */
 "use strict";
 
-var CACHE = "liebes-counter-v1";
+var CACHE = "liebes-counter-v2";
 var ASSETS = [
   ".",
   "index.html",
@@ -29,7 +32,7 @@ self.addEventListener("install", function (event) {
   );
 });
 
-// Aktivieren: alte Caches aufräumen.
+// Aktivieren: ALLE alten Caches (auch v1) aufräumen und sofort übernehmen.
 self.addEventListener("activate", function (event) {
   event.waitUntil(
     caches.keys().then(function (keys) {
@@ -41,7 +44,7 @@ self.addEventListener("activate", function (event) {
   );
 });
 
-// Abrufen: nur eigene GET-Anfragen behandeln; Cache zuerst, dann Netz.
+// Abrufen: nur eigene GET-Anfragen behandeln; NETZ ZUERST, Cache als Fallback.
 self.addEventListener("fetch", function (event) {
   var req = event.request;
   if (req.method !== "GET") return;
@@ -50,19 +53,18 @@ self.addEventListener("fetch", function (event) {
   if (url.origin !== self.location.origin) return; // nur Same-Origin
 
   event.respondWith(
-    caches.match(req).then(function (cached) {
-      var network = fetch(req).then(function (res) {
-        // Erfolgreiche Antworten frisch in den Cache spiegeln.
-        if (res && res.ok && res.type === "basic") {
-          var copy = res.clone();
-          caches.open(CACHE).then(function (c) { c.put(req, copy); }).catch(function () {});
-        }
-        return res;
-      }).catch(function () {
-        // Offline: gecachte Version oder, bei Navigation, die Startseite.
+    fetch(req).then(function (res) {
+      // Erfolgreiche Antworten frisch in den Cache spiegeln (für offline).
+      if (res && res.ok && res.type === "basic") {
+        var copy = res.clone();
+        caches.open(CACHE).then(function (c) { c.put(req, copy); }).catch(function () {});
+      }
+      return res;
+    }).catch(function () {
+      // Offline: gecachte Version oder, bei Navigation, die Startseite.
+      return caches.match(req).then(function (cached) {
         return cached || caches.match("index.html");
       });
-      return cached || network;
-    }).catch(function () { return fetch(req); })
+    })
   );
 });

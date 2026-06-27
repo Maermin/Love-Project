@@ -294,22 +294,42 @@ canvas#confetti{z-index:60}
     if (!pw) { pwInput.focus(); return; }
     lockError.textContent = "";
     lockBtn.disabled = true;
-    var prev = lockBtn.textContent;
     lockBtn.textContent = "Entschlüssle…";
 
-    decryptContent(pw).then(function (html){
+    function fail(msg, shake){
+      lockBtn.disabled = false;
+      lockBtn.textContent = "Öffnen";
+      lockError.textContent = msg;
+      if (shake){ lock.classList.remove("shake"); void lock.offsetWidth; lock.classList.add("shake"); }
+      pwInput.select();
+    }
+
+    // Notbremse: falls aus irgendeinem Grund nie etwas zurückkommt,
+    // bleibt der Button nicht für immer auf "Entschlüssle…" hängen.
+    var settled = false;
+    var watchdog = setTimeout(function (){
+      if (!settled) fail("Das dauert ungewöhnlich lange. Bitte die Seite neu laden (Strg/Cmd + Shift + R) und erneut versuchen.", false);
+    }, 12000);
+
+    // Promise.resolve() fängt auch SYNCHRONE Fehler in decryptContent ab
+    // (z. B. beschädigte/abgeschnittene Daten) — sonst hinge der Button.
+    Promise.resolve().then(function (){ return decryptContent(pw); }).then(function (html){
+      settled = true; clearTimeout(watchdog);
       app.innerHTML = html;
       lock.hidden = true;
       app.hidden = false;
       document.body.classList.add("unlocked");
       pwInput.value = "";
-      initApp();
-    }).catch(function (){
-      lockBtn.disabled = false;
-      lockBtn.textContent = prev;
-      lockError.textContent = "Falsche Passphrase. Versuch es noch einmal.";
-      lock.classList.remove("shake"); void lock.offsetWidth; lock.classList.add("shake");
-      pwInput.select();
+      try { initApp(); } catch (err) { console.error("initApp:", err); }
+    }).catch(function (err){
+      settled = true; clearTimeout(watchdog);
+      var name = (err && err.name) ? err.name : "";
+      if (name === "OperationError" || name === "InvalidAccessError" || name === ""){
+        fail("Falsche Passphrase. Versuch es noch einmal.", true);
+      } else {
+        console.error("Entschlüsselung fehlgeschlagen:", err);
+        fail("Technischer Fehler beim Entschlüsseln. Bitte die Seite neu laden und erneut versuchen.", true);
+      }
     });
   });
 
